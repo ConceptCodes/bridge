@@ -39,7 +39,13 @@ class Settings(BaseSettings):
     )
     auth_required: bool = Field(default=True, validation_alias="AUTH_REQUIRED")
     auth_public_path_prefixes: tuple[str, ...] = Field(
-        default=("/docs", "/redoc", "/openapi.json", "/health", "/healthz"),
+        default=(
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/api/health",
+            "/api/healthz",
+        ),
         validation_alias="AUTH_PUBLIC_PATH_PREFIXES",
     )
     cors_allow_origins: tuple[str, ...] = Field(
