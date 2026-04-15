@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from sqlalchemy import Enum as SAEnum, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base
 from src.schemas.enum import FirmStatus
+
+from .base import Base
 
 
 class Firm(Base):

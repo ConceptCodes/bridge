@@ -6,7 +6,6 @@ from pathlib import Path
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 DEFAULT_SQLITE_PATH = Path("database.db")
 
 
