@@ -2,9 +2,6 @@ set shell := ["zsh", "-cu"]
 
 default: check
 
-sync:
-    uv sync
-
 run:
     uv run python main.py
 
