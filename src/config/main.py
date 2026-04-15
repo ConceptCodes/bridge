@@ -26,6 +26,22 @@ class Settings(BaseSettings):
         default=True,
         validation_alias=AliasChoices("SQLALCHEMY_POOL_PRE_PING", "POOL_PRE_PING"),
     )
+    auth_secret_key: str = Field(default="", validation_alias="AUTH_SECRET_KEY")
+    auth_issuer: str = Field(default="bridge", validation_alias="AUTH_ISSUER")
+    auth_audience: str = Field(default="bridge-api", validation_alias="AUTH_AUDIENCE")
+    auth_access_token_ttl_minutes: int = Field(
+        default=60 * 24,
+        validation_alias="AUTH_ACCESS_TOKEN_TTL_MINUTES",
+    )
+    auth_clock_skew_seconds: int = Field(
+        default=30,
+        validation_alias="AUTH_CLOCK_SKEW_SECONDS",
+    )
+    auth_required: bool = Field(default=True, validation_alias="AUTH_REQUIRED")
+    auth_public_path_prefixes: tuple[str, ...] = Field(
+        default=("/docs", "/redoc", "/openapi.json", "/health", "/healthz"),
+        validation_alias="AUTH_PUBLIC_PATH_PREFIXES",
+    )
     cors_allow_origins: tuple[str, ...] = Field(
         default=("*",),
         validation_alias="CORS_ALLOW_ORIGINS",
@@ -61,6 +77,7 @@ class Settings(BaseSettings):
         "cors_allow_origins",
         "cors_allow_methods",
         "cors_allow_headers",
+        "auth_public_path_prefixes",
         "content_type_allowed_types",
         "content_type_body_methods",
         mode="before",
