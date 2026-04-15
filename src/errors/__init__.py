@@ -7,7 +7,7 @@ from fastapi import status
 
 
 @dataclass(frozen=True, slots=True)
-class AppError:
+class AppError(Exception):
     code: str
     message: str
     status_code: int = status.HTTP_400_BAD_REQUEST
@@ -20,6 +20,9 @@ class AppError:
             status_code=self.status_code,
             details=details or None,
         )
+
+    def __str__(self) -> str:
+        return self.message
 
 
 BAD_REQUEST = AppError(

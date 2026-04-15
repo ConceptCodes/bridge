@@ -21,6 +21,7 @@ from src.repositories import (
 )
 from src.schemas.enum import DocumentStatus
 from src.schemas.request import CreateWorkspaceRequest, RegisterDocumentRequest
+from src.services.audit import AuditEventService
 from src.services.document import DocumentService
 from src.services.workspace import WorkspaceService
 from src.storage.documents import LocalDocumentStorage
@@ -50,6 +51,9 @@ class DocumentServiceIntegrationTest(unittest.TestCase):
         self.research_request_repository = ResearchRequestRepository(self.session)
         self.ai_job_repository = AIJobRepository(self.session)
         self.audit_event_repository = AuditEventRepository(self.session)
+        self.audit_event_service = AuditEventService(
+            audit_event_repository=self.audit_event_repository,
+        )
 
         storage = LocalDocumentStorage(
             Settings(
@@ -62,7 +66,7 @@ class DocumentServiceIntegrationTest(unittest.TestCase):
             workspace_member_repository=self.workspace_member_repository,
             user_repository=self.user_repository,
             document_repository=self.document_repository,
-            audit_event_repository=self.audit_event_repository,
+            audit_event_service=self.audit_event_service,
             storage=storage,
         )
         self.workspace_service = WorkspaceService(
@@ -73,7 +77,7 @@ class DocumentServiceIntegrationTest(unittest.TestCase):
             document_repository=self.document_repository,
             research_request_repository=self.research_request_repository,
             ai_job_repository=self.ai_job_repository,
-            audit_event_repository=self.audit_event_repository,
+            audit_event_service=self.audit_event_service,
         )
 
     def tearDown(self) -> None:

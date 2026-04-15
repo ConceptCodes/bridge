@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from src.errors import CONFLICT, FORBIDDEN, NOT_FOUND
 from src.models import AuthenticatedUser, Document
 from src.repositories import (
-    AuditEventRepository,
     DocumentRepository,
     UserRepository,
     WorkspaceMemberRepository,
@@ -15,6 +14,7 @@ from src.schemas.enum import WorkspaceAction, WorkspaceStatus
 from src.schemas.request import ListDocumentsRequest, RegisterDocumentRequest
 from src.storage.documents import DocumentStorage, LocalDocumentStorage
 
+from .audit import AuditEventService
 from .rbac import WorkspaceAuthorizationService
 
 
@@ -32,42 +32,18 @@ class DocumentService:
         workspace_member_repository: WorkspaceMemberRepository,
         user_repository: UserRepository,
         document_repository: DocumentRepository,
-        audit_event_repository: AuditEventRepository,
+        audit_event_service: AuditEventService,
         storage: DocumentStorage | None = None,
     ) -> None:
         self.workspace_repository = workspace_repository
         self.workspace_member_repository = workspace_member_repository
         self.user_repository = user_repository
         self.document_repository = document_repository
-        self.audit_event_repository = audit_event_repository
+        self.audit_event_service = audit_event_service
         self.storage = storage or LocalDocumentStorage()
         self.authorization_service = WorkspaceAuthorizationService(
             workspace_repository=workspace_repository,
             workspace_member_repository=workspace_member_repository,
-        )
-
-    def _write_audit_event(
-        self,
-        *,
-        workspace_id: str,
-        actor_user_id: str,
-        document: Document,
-    ) -> None:
-        self.audit_event_repository.create(
-            {
-                "workspace_id": workspace_id,
-                "actor_user_id": actor_user_id,
-                "event_type": "document.registered",
-                "entity_type": "document",
-                "entity_id": document.id,
-                "payload_json": {
-                    "filename": document.filename,
-                    "document_type": document.document_type,
-                    "mime_type": document.mime_type,
-                    "checksum": document.checksum,
-                    "status": document.status.value,
-                },
-            },
         )
 
     def register_document(
@@ -131,10 +107,19 @@ class DocumentService:
                 "status": request.status,
             },
         )
-        self._write_audit_event(
+        self.audit_event_service.record_event(
             workspace_id=workspace_id,
             actor_user_id=actor.user_id,
-            document=document,
+            event_type="document.registered",
+            entity_type="document",
+            entity_id=document.id,
+            payload_json={
+                "filename": document.filename,
+                "document_type": document.document_type,
+                "mime_type": document.mime_type,
+                "checksum": document.checksum,
+                "status": document.status.value,
+            },
         )
         return DocumentUploadResult(document=document, storage_key=stored.storage_key)
 

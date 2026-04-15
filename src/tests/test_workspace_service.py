@@ -26,6 +26,8 @@ from src.schemas.request import (
     RegisterDocumentRequest,
     UpdateAIJobStatusRequest,
 )
+from src.services.ai_job import AIJobService
+from src.services.audit import AuditEventService
 from src.services.workspace import WorkspaceService
 
 
@@ -52,6 +54,9 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
         self.research_request_repository = ResearchRequestRepository(self.session)
         self.ai_job_repository = AIJobRepository(self.session)
         self.audit_event_repository = AuditEventRepository(self.session)
+        self.audit_event_service = AuditEventService(
+            audit_event_repository=self.audit_event_repository,
+        )
         self.service = WorkspaceService(
             firm_repository=self.firm_repository,
             user_repository=self.user_repository,
@@ -60,7 +65,14 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
             document_repository=self.document_repository,
             research_request_repository=self.research_request_repository,
             ai_job_repository=self.ai_job_repository,
-            audit_event_repository=self.audit_event_repository,
+            audit_event_service=self.audit_event_service,
+        )
+        self.ai_job_service = AIJobService(
+            workspace_repository=self.workspace_repository,
+            workspace_member_repository=self.workspace_member_repository,
+            research_request_repository=self.research_request_repository,
+            ai_job_repository=self.ai_job_repository,
+            audit_event_service=self.audit_event_service,
         )
 
     def tearDown(self) -> None:
@@ -136,19 +148,19 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
             actor=auth_user,
         )
 
-        job = self.service.create_ai_job(
+        job = self.ai_job_service.create_ai_job(
             research_request.id,
             CreateAIJobRequest(provider="openai", model="gpt-5.4"),
             actor=auth_user,
         )
         created_job_status = job.status
-        running_job = self.service.update_ai_job_status(
+        running_job = self.ai_job_service.update_ai_job_status(
             job.id,
             UpdateAIJobStatusRequest(status=AIJobStatus.running),
             actor=auth_user,
         )
         running_job_status = running_job.status
-        completed_job = self.service.update_ai_job_status(
+        completed_job = self.ai_job_service.update_ai_job_status(
             job.id,
             UpdateAIJobStatusRequest(status=AIJobStatus.completed),
             actor=auth_user,

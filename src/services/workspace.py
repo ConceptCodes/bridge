@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
-from src.errors import BAD_REQUEST, CONFLICT, FORBIDDEN, NOT_FOUND
+from src.errors import CONFLICT, FORBIDDEN, NOT_FOUND
 from src.models import (
-    AIJob,
-    AuthenticatedUser,
     AuditEvent,
+    AuthenticatedUser,
     Document,
     ResearchRequest,
+    User,
     Workspace,
     WorkspaceMember,
-    User,
 )
 from src.repositories import (
     AIJobRepository,
-    AuditEventRepository,
     DocumentRepository,
     FirmRepository,
     ResearchRequestRepository,
@@ -33,16 +30,15 @@ from src.schemas.enum import (
 )
 from src.schemas.request import (
     AddWorkspaceMemberRequest,
-    CreateAIJobRequest,
     CreateResearchRequest,
     CreateWorkspaceRequest,
     ListActivityRequest,
     ListDocumentsRequest,
     ListWorkspacesRequest,
     RegisterDocumentRequest,
-    UpdateAIJobStatusRequest,
 )
 
+from .audit import AuditEventService
 from .rbac import WorkspaceAccess, WorkspaceAuthorizationService
 
 
@@ -53,13 +49,6 @@ class WorkspaceDetail:
     document_count: int
     open_research_request_count: int
     latest_ai_job_status: AIJobStatus | None
-
-
-@dataclass(frozen=True, slots=True)
-class AIJobDetail:
-    job: AIJob
-    research_request: ResearchRequest
-    workspace: Workspace
 
 
 class WorkspaceService:
@@ -73,7 +62,7 @@ class WorkspaceService:
         document_repository: DocumentRepository,
         research_request_repository: ResearchRequestRepository,
         ai_job_repository: AIJobRepository,
-        audit_event_repository: AuditEventRepository,
+        audit_event_service: AuditEventService,
     ) -> None:
         self.firm_repository = firm_repository
         self.user_repository = user_repository
@@ -82,14 +71,11 @@ class WorkspaceService:
         self.document_repository = document_repository
         self.research_request_repository = research_request_repository
         self.ai_job_repository = ai_job_repository
-        self.audit_event_repository = audit_event_repository
+        self.audit_event_service = audit_event_service
         self.authorization_service = WorkspaceAuthorizationService(
             workspace_repository=workspace_repository,
             workspace_member_repository=workspace_member_repository,
         )
-
-    def _now(self) -> datetime:
-        return datetime.now(UTC)
 
     def _require_same_actor(self, *, actor: AuthenticatedUser, user_id: str) -> None:
         if actor.user_id != user_id:
@@ -125,27 +111,6 @@ class WorkspaceService:
             actor=actor,
             workspace_id=workspace_id,
             action=action,
-        )
-
-    def _write_audit_event(
-        self,
-        *,
-        workspace_id: str,
-        actor_user_id: str,
-        event_type: str,
-        entity_type: str,
-        entity_id: str,
-        payload_json: dict[str, object],
-    ) -> AuditEvent:
-        return self.audit_event_repository.create(
-            {
-                "workspace_id": workspace_id,
-                "actor_user_id": actor_user_id,
-                "event_type": event_type,
-                "entity_type": entity_type,
-                "entity_id": entity_id,
-                "payload_json": payload_json,
-            },
         )
 
     def create_workspace(
@@ -190,7 +155,7 @@ class WorkspaceService:
                 "role": WorkspaceMemberRole.owner,
             },
         )
-        self._write_audit_event(
+        self.audit_event_service.record_event(
             workspace_id=workspace.id,
             actor_user_id=actor.user_id,
             event_type="workspace.created",
@@ -270,7 +235,10 @@ class WorkspaceService:
             request.user_id,
         )
         if existing_member is not None:
-            raise CONFLICT.with_details(workspace_id=workspace_id, user_id=request.user_id)
+            raise CONFLICT.with_details(
+                workspace_id=workspace_id,
+                user_id=request.user_id,
+            )
 
         membership = self.workspace_member_repository.create(
             {
@@ -279,7 +247,7 @@ class WorkspaceService:
                 "role": request.role,
             },
         )
-        self._write_audit_event(
+        self.audit_event_service.record_event(
             workspace_id=workspace_id,
             actor_user_id=actor.user_id,
             event_type="workspace.member_added",
@@ -340,7 +308,7 @@ class WorkspaceService:
                 "status": request.status,
             },
         )
-        self._write_audit_event(
+        self.audit_event_service.record_event(
             workspace_id=workspace_id,
             actor_user_id=actor.user_id,
             event_type="document.registered",
@@ -428,7 +396,7 @@ class WorkspaceService:
                 "status": ResearchRequestStatus.open,
             },
         )
-        self._write_audit_event(
+        self.audit_event_service.record_event(
             workspace_id=workspace_id,
             actor_user_id=actor.user_id,
             event_type="research_request.created",
@@ -440,174 +408,6 @@ class WorkspaceService:
             },
         )
         return research_request
-
-    def create_ai_job(
-        self,
-        research_request_id: str,
-        request: CreateAIJobRequest,
-        *,
-        actor: AuthenticatedUser,
-    ) -> AIJob:
-        research_request = self.research_request_repository.find_by_id(
-            research_request_id,
-        )
-        if research_request is None:
-            raise NOT_FOUND.with_details(research_request_id=research_request_id)
-
-        access = self._authorize_workspace(
-            actor=actor,
-            workspace_id=research_request.workspace_id,
-            action=WorkspaceAction.jobs_create,
-        )
-        if access.workspace.status != WorkspaceStatus.active:
-            raise FORBIDDEN.with_details(
-                workspace_id=research_request.workspace_id,
-                status=access.workspace.status.value,
-            )
-
-        active_job = self.ai_job_repository.find_by_research_request_and_active_status(
-            research_request_id,
-        )
-        if active_job is not None:
-            raise CONFLICT.with_details(
-                research_request_id=research_request_id,
-                active_job_id=active_job.id,
-            )
-
-        job = self.ai_job_repository.create(
-            {
-                "research_request_id": research_request_id,
-                "provider": request.provider,
-                "model": request.model,
-                "status": AIJobStatus.queued,
-                "attempt_count": 0,
-                "queued_at": self._now(),
-                "started_at": None,
-                "completed_at": None,
-                "error_code": None,
-                "error_message": None,
-            },
-        )
-        self._write_audit_event(
-            workspace_id=research_request.workspace_id,
-            actor_user_id=actor.user_id,
-            event_type="ai_job.created",
-            entity_type="ai_job",
-            entity_id=job.id,
-            payload_json={
-                "provider": request.provider,
-                "model": request.model,
-                "status": job.status.value,
-            },
-        )
-        return job
-
-    def update_ai_job_status(
-        self,
-        job_id: str,
-        request: UpdateAIJobStatusRequest,
-        *,
-        actor: AuthenticatedUser,
-    ) -> AIJob:
-        job = self.ai_job_repository.find_by_id(job_id)
-        if job is None:
-            raise NOT_FOUND.with_details(job_id=job_id)
-        previous_status = job.status
-
-        research_request = self.research_request_repository.find_by_id(
-            job.research_request_id,
-        )
-        if research_request is None:
-            raise NOT_FOUND.with_details(research_request_id=job.research_request_id)
-
-        access = self._authorize_workspace(
-            actor=actor,
-            workspace_id=research_request.workspace_id,
-            action=WorkspaceAction.jobs_update_status,
-        )
-        if access.membership.role != WorkspaceMemberRole.owner:
-            raise FORBIDDEN.with_details(
-                workspace_id=research_request.workspace_id,
-                role=access.membership.role.value,
-                action=request.status.value,
-            )
-
-        transition_key = (job.status, request.status)
-        allowed_transitions: dict[tuple[AIJobStatus, AIJobStatus], None] = {
-            (AIJobStatus.queued, AIJobStatus.running): None,
-            (AIJobStatus.running, AIJobStatus.completed): None,
-            (AIJobStatus.running, AIJobStatus.failed): None,
-            (AIJobStatus.queued, AIJobStatus.cancelled): None,
-            (AIJobStatus.running, AIJobStatus.cancelled): None,
-        }
-        if transition_key not in allowed_transitions:
-            raise BAD_REQUEST.with_details(
-                job_id=job_id,
-                current_status=previous_status.value,
-                requested_status=request.status.value,
-            )
-
-        now = self._now()
-        updates: dict[str, object] = {"status": request.status}
-        if transition_key == (AIJobStatus.queued, AIJobStatus.running):
-            updates["started_at"] = now
-            updates["attempt_count"] = job.attempt_count + 1
-            updates["error_code"] = None
-            updates["error_message"] = None
-        elif request.status == AIJobStatus.completed:
-            updates["completed_at"] = now
-            updates["error_code"] = None
-            updates["error_message"] = None
-        elif request.status == AIJobStatus.failed:
-            updates["completed_at"] = now
-            updates["error_code"] = job.error_code or "job_failed"
-            updates["error_message"] = job.error_message or "The job failed."
-        elif request.status == AIJobStatus.cancelled:
-            updates["completed_at"] = now
-
-        updated = self.ai_job_repository.update(job_id, updates)
-        if updated is None:
-            raise NOT_FOUND.with_details(job_id=job_id)
-
-        self._write_audit_event(
-            workspace_id=research_request.workspace_id,
-            actor_user_id=actor.user_id,
-            event_type="ai_job.status_changed",
-            entity_type="ai_job",
-            entity_id=job_id,
-            payload_json={
-                "from_status": previous_status.value,
-                "to_status": request.status.value,
-            },
-        )
-        return updated
-
-    def get_ai_job_detail(
-        self,
-        job_id: str,
-        *,
-        actor: AuthenticatedUser,
-    ) -> AIJobDetail:
-        job = self.ai_job_repository.find_by_id(job_id)
-        if job is None:
-            raise NOT_FOUND.with_details(job_id=job_id)
-
-        research_request = self.research_request_repository.find_by_id(
-            job.research_request_id,
-        )
-        if research_request is None:
-            raise NOT_FOUND.with_details(research_request_id=job.research_request_id)
-
-        access = self._authorize_workspace(
-            actor=actor,
-            workspace_id=research_request.workspace_id,
-            action=WorkspaceAction.jobs_read,
-        )
-        return AIJobDetail(
-            job=job,
-            research_request=research_request,
-            workspace=access.workspace,
-        )
 
     def list_activity(
         self,
@@ -621,7 +421,7 @@ class WorkspaceService:
             workspace_id=workspace_id,
             action=WorkspaceAction.activity_read,
         )
-        return self.audit_event_repository.list_by_workspace(
+        return self.audit_event_service.list_by_workspace(
             workspace_id,
             limit=request.limit,
             offset=request.offset,
