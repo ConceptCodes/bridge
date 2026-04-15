@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar
+from pathlib import Path
 from uuid import uuid4
 
 from src.models.auth import AuthContext, AuthenticatedUser
@@ -34,3 +35,11 @@ def get_current_user() -> AuthenticatedUser | None:
 def create_request_id() -> str:
     return uuid4().hex
 
+
+def normalize_storage_key(storage_key: str) -> Path:
+    path = Path(storage_key)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError("Storage key must be a relative path without traversal.")
+    if not path.parts:
+        raise ValueError("Storage key cannot be empty.")
+    return path

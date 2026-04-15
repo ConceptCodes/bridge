@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Protocol
 
 from src.config import Settings, get_settings
+from src.utils import normalize_storage_key
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,15 +23,6 @@ class DocumentStorage(Protocol):
     def delete(self, storage_key: str) -> None: ...
 
 
-def _normalize_storage_key(storage_key: str) -> Path:
-    path = Path(storage_key)
-    if path.is_absolute() or ".." in path.parts:
-        raise ValueError("Storage key must be a relative path without traversal.")
-    if not path.parts:
-        raise ValueError("Storage key cannot be empty.")
-    return path
-
-
 class LocalDocumentStorage:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -38,7 +30,7 @@ class LocalDocumentStorage:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _resolve(self, storage_key: str) -> Path:
-        relative_path = _normalize_storage_key(storage_key)
+        relative_path = normalize_storage_key(storage_key)
         resolved = (self.root / relative_path).resolve()
         root = self.root.resolve()
         if root not in resolved.parents and resolved != root:
