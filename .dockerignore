@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.ruff_cache
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+var
+uploads
+docs

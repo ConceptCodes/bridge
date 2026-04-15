@@ -2,6 +2,7 @@ docs/
 .vscode
 
 *.db
+var/
 
 __pycache__/
 *.pyc

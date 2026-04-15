@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      DATABASE_URL: sqlite:///database.db
+      DOCUMENT_STORAGE_BACKEND: local
+      DOCUMENT_STORAGE_ROOT: /app/var/uploads
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - uploads-data:/app/var/uploads
+    depends_on:
+      - minio
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+volumes:
+  minio-data:
+  uploads-data:
