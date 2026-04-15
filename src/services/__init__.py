@@ -3,6 +3,7 @@ from src.services.audit import AuditEventService
 from src.services.auth import AuthService
 from src.services.document import DocumentService, DocumentUploadResult
 from src.services.rbac import WorkspaceAccess, WorkspaceAuthorizationService
+from src.services.research_request import ResearchRequestService
 from src.services.workspace import WorkspaceDetail, WorkspaceService
 
 __all__ = [
@@ -12,6 +13,7 @@ __all__ = [
     "AuthService",
     "DocumentService",
     "DocumentUploadResult",
+    "ResearchRequestService",
     "WorkspaceAccess",
     "WorkspaceAuthorizationService",
     "WorkspaceDetail",

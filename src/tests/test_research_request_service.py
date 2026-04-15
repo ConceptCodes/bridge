@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from src.errors import AppError
 from src.models import AuthenticatedUser, Base
 from src.repositories import (
     AIJobRepository,
@@ -17,19 +18,14 @@ from src.repositories import (
     WorkspaceMemberRepository,
     WorkspaceRepository,
 )
-from src.schemas.enum import DocumentStatus, ResearchRequestStatus
-from src.schemas.request import (
-    CreateResearchRequest,
-    CreateWorkspaceRequest,
-    ListActivityRequest,
-    RegisterDocumentRequest,
-)
+from src.schemas.enum import ResearchRequestStatus
+from src.schemas.request import CreateResearchRequest, CreateWorkspaceRequest
 from src.services.audit import AuditEventService
 from src.services.research_request import ResearchRequestService
 from src.services.workspace import WorkspaceService
 
 
-class WorkspaceServiceIntegrationTest(unittest.TestCase):
+class ResearchRequestServiceIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = create_engine(
             "sqlite+pysqlite://",
@@ -55,7 +51,7 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
         self.audit_event_service = AuditEventService(
             audit_event_repository=self.audit_event_repository,
         )
-        self.service = WorkspaceService(
+        self.workspace_service = WorkspaceService(
             firm_repository=self.firm_repository,
             user_repository=self.user_repository,
             workspace_repository=self.workspace_repository,
@@ -65,7 +61,7 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
             ai_job_repository=self.ai_job_repository,
             audit_event_service=self.audit_event_service,
         )
-        self.research_request_service = ResearchRequestService(
+        self.service = ResearchRequestService(
             workspace_repository=self.workspace_repository,
             workspace_member_repository=self.workspace_member_repository,
             user_repository=self.user_repository,
@@ -78,11 +74,11 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
         Base.metadata.drop_all(self.engine)
         self.engine.dispose()
 
-    def test_workspace_to_completed_ai_job_flow(self) -> None:
+    def _create_actor(self) -> tuple[AuthenticatedUser, str]:
         firm = self.firm_repository.create(
             {
                 "name": "Northwind Tax",
-                "external_ref": "firm-001",
+                "external_ref": "firm-003",
                 "status": "active",
             },
         )
@@ -96,48 +92,36 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
             },
         )
         self.session.flush()
-
-        auth_user = AuthenticatedUser(
-            user_id=actor.id,
-            firm_id=firm.id,
-            email=actor.email,
-            display_name=actor.display_name,
-            global_role=actor.global_role,
-            is_active=actor.is_active,
-            firm_status=firm.status,
+        return (
+            AuthenticatedUser(
+                user_id=actor.id,
+                firm_id=firm.id,
+                email=actor.email,
+                display_name=actor.display_name,
+                global_role=actor.global_role,
+                is_active=actor.is_active,
+                firm_status=firm.status,
+            ),
+            actor.id,
         )
 
-        workspace = self.service.create_workspace(
+    def test_create_research_request_records_audit_event(self) -> None:
+        auth_user, actor_id = self._create_actor()
+        workspace = self.workspace_service.create_workspace(
             CreateWorkspaceRequest(
-                firm_id=firm.id,
+                firm_id=auth_user.firm_id,
                 client_name="Acme Corp",
                 client_external_ref="acme-2026",
                 workflow_type="tax_research",
                 tax_year=2026,
-                created_by_user_id=actor.id,
+                created_by_user_id=actor_id,
             ),
             actor=auth_user,
         )
-
-        document = self.service.register_document(
-            workspace.id,
-            RegisterDocumentRequest(
-                filename="engagement-letter.pdf",
-                document_type="engagement_letter",
-                mime_type="application/pdf",
-                storage_key="docs/acme/engagement-letter.pdf",
-                checksum="checksum-123",
-                size_bytes=1024,
-                uploaded_by_user_id=actor.id,
-                status=DocumentStatus.registered,
-            ),
-            actor=auth_user,
-        )
-
-        research_request = self.research_request_service.create_research_request(
+        request = self.service.create_research_request(
             workspace.id,
             CreateResearchRequest(
-                created_by_user_id=actor.id,
+                created_by_user_id=actor_id,
                 title="Analyze nexus exposure",
                 question="Does the client have nexus in Texas for 2026?",
                 priority="high",
@@ -146,25 +130,60 @@ class WorkspaceServiceIntegrationTest(unittest.TestCase):
             actor=auth_user,
         )
 
-        detail = self.service.get_workspace_detail(workspace.id, actor=auth_user)
-        activity = self.service.list_activity(
-            workspace.id,
-            ListActivityRequest(limit=20, offset=0),
-            actor=auth_user,
+        events = self.audit_event_repository.list_by_workspace(workspace.id)
+        self.assertEqual(request.status, ResearchRequestStatus.open)
+        self.assertEqual(len(events), 2)
+        self.assertIn(
+            "research_request.created",
+            [event.event_type for event in events],
         )
 
-        self.assertEqual(workspace.client_name, "Acme Corp")
-        self.assertEqual(document.status, DocumentStatus.registered)
-        self.assertEqual(research_request.status, ResearchRequestStatus.open)
-        self.assertEqual(detail.member_count, 1)
-        self.assertEqual(detail.document_count, 1)
-        self.assertEqual(detail.open_research_request_count, 1)
-        self.assertIsNone(detail.latest_ai_job_status)
-        self.assertEqual(len(activity), 3)
-        event_types = [event.event_type for event in activity]
-        self.assertIn("workspace.created", event_types)
-        self.assertIn("document.registered", event_types)
-        self.assertIn("research_request.created", event_types)
+    def test_rejects_non_member_requester(self) -> None:
+        auth_user, actor_id = self._create_actor()
+        workspace = self.workspace_service.create_workspace(
+            CreateWorkspaceRequest(
+                firm_id=auth_user.firm_id,
+                client_name="Acme Corp",
+                client_external_ref="acme-2026",
+                workflow_type="tax_research",
+                tax_year=2026,
+                created_by_user_id=actor_id,
+            ),
+            actor=auth_user,
+        )
+        outsider = self.user_repository.create(
+            {
+                "firm_id": auth_user.firm_id,
+                "email": "outsider@example.com",
+                "display_name": "Outsider",
+                "global_role": "firm_admin",
+                "is_active": True,
+            },
+        )
+        self.session.flush()
+
+        outsider_auth = AuthenticatedUser(
+            user_id=outsider.id,
+            firm_id=auth_user.firm_id,
+            email=outsider.email,
+            display_name=outsider.display_name,
+            global_role=outsider.global_role,
+            is_active=outsider.is_active,
+            firm_status=auth_user.firm_status,
+        )
+
+        with self.assertRaises(AppError):
+            self.service.create_research_request(
+                workspace.id,
+                CreateResearchRequest(
+                    created_by_user_id=outsider.id,
+                    title="Should fail",
+                    question="No membership",
+                    priority="low",
+                    status=ResearchRequestStatus.open,
+                ),
+                actor=outsider_auth,
+            )
 
 
 if __name__ == "__main__":

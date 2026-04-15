@@ -27,6 +27,7 @@ from src.schemas.request import (
 )
 from src.services.ai_job import AIJobService
 from src.services.audit import AuditEventService
+from src.services.research_request import ResearchRequestService
 from src.services.workspace import WorkspaceService
 
 
@@ -64,6 +65,13 @@ class AIJobServiceIntegrationTest(unittest.TestCase):
             document_repository=self.document_repository,
             research_request_repository=self.research_request_repository,
             ai_job_repository=self.ai_job_repository,
+            audit_event_service=self.audit_event_service,
+        )
+        self.research_request_service = ResearchRequestService(
+            workspace_repository=self.workspace_repository,
+            workspace_member_repository=self.workspace_member_repository,
+            user_repository=self.user_repository,
+            research_request_repository=self.research_request_repository,
             audit_event_service=self.audit_event_service,
         )
         self.ai_job_service = AIJobService(
@@ -125,7 +133,7 @@ class AIJobServiceIntegrationTest(unittest.TestCase):
             ),
             actor=auth_user,
         )
-        research_request = self.workspace_service.create_research_request(
+        research_request = self.research_request_service.create_research_request(
             workspace.id,
             CreateResearchRequest(
                 created_by_user_id=actor_id,

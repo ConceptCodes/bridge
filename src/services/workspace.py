@@ -7,7 +7,6 @@ from src.models import (
     AuditEvent,
     AuthenticatedUser,
     Document,
-    ResearchRequest,
     User,
     Workspace,
     WorkspaceMember,
@@ -23,14 +22,12 @@ from src.repositories import (
 )
 from src.schemas.enum import (
     AIJobStatus,
-    ResearchRequestStatus,
     WorkspaceAction,
     WorkspaceMemberRole,
     WorkspaceStatus,
 )
 from src.schemas.request import (
     AddWorkspaceMemberRequest,
-    CreateResearchRequest,
     CreateWorkspaceRequest,
     ListActivityRequest,
     ListDocumentsRequest,
@@ -344,70 +341,6 @@ class WorkspaceService:
             limit=request.limit,
             offset=request.offset,
         )
-
-    def create_research_request(
-        self,
-        workspace_id: str,
-        request: CreateResearchRequest,
-        *,
-        actor: AuthenticatedUser,
-    ) -> ResearchRequest:
-        self._require_same_actor(actor=actor, user_id=request.created_by_user_id)
-        access = self._authorize_workspace(
-            actor=actor,
-            workspace_id=workspace_id,
-            action=WorkspaceAction.research_requests_create,
-        )
-        if access.workspace.status != WorkspaceStatus.active:
-            raise FORBIDDEN.with_details(
-                workspace_id=workspace_id,
-                status=access.workspace.status.value,
-            )
-
-        requester = self.user_repository.find_by_id(request.created_by_user_id)
-        if requester is None:
-            raise NOT_FOUND.with_details(user_id=request.created_by_user_id)
-        if requester.firm_id != actor.firm_id:
-            raise FORBIDDEN.with_details(
-                user_id=request.created_by_user_id,
-                actor_firm_id=actor.firm_id,
-                user_firm_id=requester.firm_id,
-            )
-        if (
-            self.workspace_member_repository.find_by_workspace_and_user(
-                workspace_id,
-                request.created_by_user_id,
-            )
-            is None
-        ):
-            raise FORBIDDEN.with_details(
-                workspace_id=workspace_id,
-                user_id=request.created_by_user_id,
-                reason="user_is_not_workspace_member",
-            )
-
-        research_request = self.research_request_repository.create(
-            {
-                "workspace_id": workspace_id,
-                "created_by_user_id": request.created_by_user_id,
-                "title": request.title,
-                "question": request.question,
-                "priority": request.priority,
-                "status": ResearchRequestStatus.open,
-            },
-        )
-        self.audit_event_service.record_event(
-            workspace_id=workspace_id,
-            actor_user_id=actor.user_id,
-            event_type="research_request.created",
-            entity_type="research_request",
-            entity_id=research_request.id,
-            payload_json={
-                "title": request.title,
-                "priority": request.priority,
-            },
-        )
-        return research_request
 
     def list_activity(
         self,
