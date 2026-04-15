@@ -8,6 +8,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.config.main import Settings, get_settings
+from src.logger.main import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class DatabaseClient:
@@ -20,6 +24,7 @@ class DatabaseClient:
     def engine(self) -> Engine:
         if self._engine is None:
             # Lazy initialization keeps the module importable without a live DB.
+            logger.debug("Creating SQLAlchemy engine for %s", self.settings.database_url)
             connect_args = {}
             if self.settings.database_url.startswith("sqlite"):
                 connect_args["check_same_thread"] = False
@@ -34,6 +39,7 @@ class DatabaseClient:
     @property
     def session_factory(self) -> sessionmaker[Session]:
         if self._session_factory is None:
+            logger.debug("Creating SQLAlchemy session factory")
             self._session_factory = sessionmaker(
                 bind=self.engine,
                 autoflush=False,
