@@ -13,3 +13,5 @@ __pycache__/
 
 .uv-cache/
 .ruff-cache/
+
+AGENTS.md
