@@ -5,7 +5,7 @@ from collections.abc import Callable, Sequence
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.config.main import Settings, get_settings
+from src.config import Settings, get_settings
 from src.errors import UNSUPPORTED_MEDIA_TYPE
 
 

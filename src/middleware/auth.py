@@ -6,9 +6,9 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.config.main import Settings, get_settings
+from src.config import Settings, get_settings
 from src.errors import FORBIDDEN, UNAUTHORIZED
-from src.logger.main import get_logger
+from src.logger import get_logger
 from src.models import AuthContext, AuthenticatedUser, Firm, User
 from src.schemas.enum import FirmStatus
 from src.services.auth import AuthService

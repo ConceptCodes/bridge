@@ -7,8 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.config.main import Settings, get_settings
-from src.logger.main import get_logger
+from src.config import Settings, get_settings
+from src.logger import get_logger
 
 
 logger = get_logger(__name__)

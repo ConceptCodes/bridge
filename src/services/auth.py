@@ -7,7 +7,7 @@ import json
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from src.config.main import Settings, get_settings
+from src.config import Settings, get_settings
 from src.models.auth import AuthTokenClaims, AuthenticatedUser
 
 AUTH_TOKEN_VERSION = 1

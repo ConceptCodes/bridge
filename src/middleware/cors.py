@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from src.config.main import Settings, get_settings
+from src.config import Settings, get_settings
 
 
 class CorsMiddleware(BaseHTTPMiddleware):
