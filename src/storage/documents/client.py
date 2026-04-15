@@ -63,4 +63,3 @@ class LocalDocumentStorage:
         path = self._resolve(storage_key)
         if path.exists():
             path.unlink()
-
