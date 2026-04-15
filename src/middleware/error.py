@@ -15,7 +15,7 @@ from src.errors import (
     VALIDATION_ERROR,
     AppError,
 )
-from src.middleware.request_id import get_request_id
+from src.utils import get_request_id
 
 
 def _serialize_error(error: AppError) -> dict[str, object]:
