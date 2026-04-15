@@ -38,6 +38,14 @@ class Settings(BaseSettings):
         default_factory=lambda: f"sqlite:///{DEFAULT_SQLITE_PATH}",
         validation_alias="DATABASE_URL",
     )
+    document_storage_backend: str = Field(
+        default="local",
+        validation_alias="DOCUMENT_STORAGE_BACKEND",
+    )
+    document_storage_root: str = Field(
+        default="var/uploads",
+        validation_alias="DOCUMENT_STORAGE_ROOT",
+    )
     sqlalchemy_echo: bool = Field(default=False, validation_alias="SQLALCHEMY_ECHO")
     pool_pre_ping: bool = Field(
         default=True,
