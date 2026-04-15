@@ -11,6 +11,7 @@ from src.middleware import (
     RequestIdMiddleware,
     RequestLoggingMiddleware,
     RequestSizeMiddleware,
+    ValidationMiddleware,
 )
 from src.router.health import health_router
 from src.router.v1 import v1_router
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.add_middleware(ContentTypeMiddleware, settings=settings)
     app.add_middleware(AuthMiddleware, settings=settings)
     app.add_middleware(ErrorMiddleware)
+    app.add_middleware(ValidationMiddleware)
 
     app.include_router(health_router, prefix="/api")
     app.include_router(v1_router, prefix="/api")

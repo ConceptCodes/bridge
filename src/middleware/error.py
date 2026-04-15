@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request, Response
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -13,7 +12,6 @@ from src.errors import (
     INTERNAL_SERVER_ERROR,
     REQUEST_ENTITY_TOO_LARGE,
     UNSUPPORTED_MEDIA_TYPE,
-    VALIDATION_ERROR,
     AppError,
 )
 from src.utils import get_request_id
@@ -50,11 +48,6 @@ class ErrorMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         except AppError as error:
             return _error_response(error, get_request_id())
-        except RequestValidationError as error:
-            validation_error = VALIDATION_ERROR.with_details(
-                errors=error.errors(),
-            )
-            return _error_response(validation_error, get_request_id())
         except HTTPException as error:
             if error.status_code == UNSUPPORTED_MEDIA_TYPE.status_code:
                 app_error = UNSUPPORTED_MEDIA_TYPE.with_details(

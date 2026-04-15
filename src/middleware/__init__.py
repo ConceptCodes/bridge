@@ -5,6 +5,7 @@ from src.middleware.error import ErrorMiddleware
 from src.middleware.http_logging import RequestLoggingMiddleware
 from src.middleware.request_id import RequestIdMiddleware
 from src.middleware.request_size import RequestSizeMiddleware
+from src.middleware.validation import ValidationMiddleware
 
 __all__ = [
     "AuthMiddleware",
@@ -14,4 +15,5 @@ __all__ = [
     "RequestIdMiddleware",
     "RequestLoggingMiddleware",
     "RequestSizeMiddleware",
+    "ValidationMiddleware",
 ]
