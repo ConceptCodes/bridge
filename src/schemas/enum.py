@@ -25,6 +25,19 @@ class WorkspaceMemberRole(StrEnum):
     viewer = "viewer"
 
 
+class WorkspaceAction(StrEnum):
+    workspace_read = "workspace.read"
+    workspace_update = "workspace.update"
+    members_manage = "members.manage"
+    documents_read = "documents.read"
+    documents_create = "documents.create"
+    research_requests_create = "research_requests.create"
+    jobs_create = "jobs.create"
+    jobs_update_status = "jobs.update_status"
+    jobs_read = "jobs.read"
+    activity_read = "activity.read"
+
+
 class DocumentStatus(StrEnum):
     registered = "registered"
     processing = "processing"
