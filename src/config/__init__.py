@@ -17,6 +17,23 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    app_host: str = Field(default="0.0.0.0", validation_alias="APP_HOST")
+    app_port: int = Field(default=8000, ge=1, le=65535, validation_alias="APP_PORT")
+    max_request_body_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        ge=1,
+        validation_alias="MAX_REQUEST_BODY_BYTES",
+    )
+    uvicorn_timeout_keep_alive_seconds: int = Field(
+        default=5,
+        ge=0,
+        validation_alias="UVICORN_TIMEOUT_KEEP_ALIVE_SECONDS",
+    )
+    uvicorn_limit_concurrency: int | None = Field(
+        default=100,
+        ge=1,
+        validation_alias="UVICORN_LIMIT_CONCURRENCY",
+    )
     database_url: str = Field(
         default_factory=lambda: f"sqlite:///{DEFAULT_SQLITE_PATH}",
         validation_alias="DATABASE_URL",

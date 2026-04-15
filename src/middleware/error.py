@@ -11,6 +11,7 @@ from src.errors import (
     BAD_REQUEST,
     CONFLICT,
     INTERNAL_SERVER_ERROR,
+    REQUEST_ENTITY_TOO_LARGE,
     UNSUPPORTED_MEDIA_TYPE,
     VALIDATION_ERROR,
     AppError,
@@ -57,6 +58,10 @@ class ErrorMiddleware(BaseHTTPMiddleware):
         except HTTPException as error:
             if error.status_code == UNSUPPORTED_MEDIA_TYPE.status_code:
                 app_error = UNSUPPORTED_MEDIA_TYPE.with_details(
+                    detail=error.detail,
+                )
+            elif error.status_code == REQUEST_ENTITY_TOO_LARGE.status_code:
+                app_error = REQUEST_ENTITY_TOO_LARGE.with_details(
                     detail=error.detail,
                 )
             elif error.status_code == BAD_REQUEST.status_code:

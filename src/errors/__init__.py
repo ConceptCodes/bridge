@@ -57,6 +57,11 @@ UNSUPPORTED_MEDIA_TYPE = AppError(
     message="Unsupported Content-Type header.",
     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
 )
+REQUEST_ENTITY_TOO_LARGE = AppError(
+    code="request_entity_too_large",
+    message="Request body is too large.",
+    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+)
 INTERNAL_SERVER_ERROR = AppError(
     code="internal_server_error",
     message="An unexpected error occurred.",
@@ -74,6 +79,7 @@ DEFAULT_ERRORS: dict[str, AppError] = {
         NOT_FOUND,
         CONFLICT,
         UNSUPPORTED_MEDIA_TYPE,
+        REQUEST_ENTITY_TOO_LARGE,
         INTERNAL_SERVER_ERROR,
     )
 }
@@ -86,6 +92,7 @@ __all__ = [
     "FORBIDDEN",
     "INTERNAL_SERVER_ERROR",
     "NOT_FOUND",
+    "REQUEST_ENTITY_TOO_LARGE",
     "UNAUTHORIZED",
     "UNSUPPORTED_MEDIA_TYPE",
     "VALIDATION_ERROR",
