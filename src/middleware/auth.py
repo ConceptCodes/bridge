@@ -9,8 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from src.config import Settings, get_settings
 from src.errors import FORBIDDEN, UNAUTHORIZED
 from src.logger import get_logger
-from src.models import AuthContext, AuthenticatedUser, Firm, User
-from src.schemas.enum import FirmStatus
+from src.models import AuthContext
+from src.repositories import AuthRepository
 from src.services.auth import AuthService
 from src.storage.sqlite import DatabaseClient, database_client
 from src.utils import auth_context_var, get_request_id
@@ -84,31 +84,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
             for prefix in self.public_path_prefixes
         )
 
-    def _load_user(self, subject_id: str) -> AuthenticatedUser:
-        with self.database.session() as session:
-            user = session.get(User, subject_id)
-            if user is None:
-                raise ValueError("User does not exist.")
-
-            firm = session.get(Firm, user.firm_id)
-            if firm is None:
-                raise ValueError("Firm does not exist.")
-
-            if not user.is_active:
-                raise PermissionError("User account is disabled.")
-            if firm.status != FirmStatus.active:
-                raise PermissionError("Firm is not active.")
-
-            return AuthenticatedUser(
-                user_id=user.id,
-                firm_id=user.firm_id,
-                email=user.email,
-                display_name=user.display_name,
-                global_role=user.global_role,
-                is_active=user.is_active,
-                firm_status=firm.status.value,
-            )
-
     async def dispatch(
         self,
         request: Request,
@@ -150,7 +125,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         try:
             claims = self.auth_service.verify_access_token(token)
-            user = self._load_user(claims.subject_id)
+            with self.database.session() as session:
+                auth_repository = AuthRepository(session)
+                user = auth_repository.load_authenticated_user(claims.subject_id)
             context = AuthContext(
                 authenticated=True,
                 user=user,
