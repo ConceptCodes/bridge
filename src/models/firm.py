@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, relationship, mapped_column
 
 from src.schemas.enum import FirmStatus
 
@@ -23,3 +23,6 @@ class Firm(Base):
         ),
         nullable=False,
     )
+
+    users: Mapped[list["User"]] = relationship("User", back_populates="firm")
+    workspaces: Mapped[list["Workspace"]] = relationship("Workspace", back_populates="firm")
