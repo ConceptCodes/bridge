@@ -95,7 +95,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ledger-bridge"
+name = "bridge"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

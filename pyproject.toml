@@ -1,5 +1,5 @@
 [project]
-name = "ledger-bridge"
+name = "bridge"
 version = "0.1.0"
 description = "A backend for an accounting research and workflow product."
 readme = "README.md"

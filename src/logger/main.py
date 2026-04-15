@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 
-APP_LOGGER_NAME = "ledger-bridge"
+APP_LOGGER_NAME = "bridge"
 LOG_FORMAT = (
     "%(asctime)s | %(levelname)s | %(name)s | %(module)s:%(lineno)d | %(message)s"
 )
