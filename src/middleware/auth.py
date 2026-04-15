@@ -12,7 +12,7 @@ from src.logger import get_logger
 from src.models import AuthContext, AuthenticatedUser, Firm, User
 from src.schemas.enum import FirmStatus
 from src.services.auth import AuthService
-from src.storage.sqlite.client import DatabaseClient, database_client
+from src.storage.sqlite import DatabaseClient, database_client
 from src.utils import auth_context_var, get_request_id
 
 logger = get_logger(__name__)
